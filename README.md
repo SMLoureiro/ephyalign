@@ -11,6 +11,8 @@
 
 A Python package for automatically detecting and aligning stimulus-evoked responses in ABF (Axon Binary Format) electrophysiological recordings with sub-millisecond precision.
 
+This toolkit was designed in collaboration with the Imre Vida Lab of Charité Berlin.
+
 ## Features
 
 - 🎯 **Automatic stimulus detection** - Detects stimulus artifacts from the signal derivative without requiring a separate trigger channel
