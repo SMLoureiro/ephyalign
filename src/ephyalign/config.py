@@ -1,5 +1,4 @@
-"""
-Configuration management for ephyalign.
+"""Configuration management for ephyalign.
 
 Provides dataclass-based configuration with support for:
 - YAML/TOML configuration files
@@ -10,11 +9,11 @@ Provides dataclass-based configuration with support for:
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Any, Optional, List, Union
 import logging
+import os
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +21,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DetectionConfig:
     """Configuration for stimulus artifact detection."""
-    
+
     # Derivative threshold multiplier (relative to noise SD)
     threshold_multiplier: float = 5.0
-    
+
     # Minimum interval between detected stimuli (seconds)
     min_interval_s: float = 3.0
-    
+
     # Search window for artifact refinement (milliseconds)
     search_window_ms: float = 1.0
-    
+
     # Whether to use absolute value of derivative for detection
     use_absolute_derivative: bool = True
 
@@ -39,16 +38,16 @@ class DetectionConfig:
 @dataclass
 class EpochConfig:
     """Configuration for epoch extraction."""
-    
+
     # Time before stimulus to include (seconds)
     pre_time_s: float = 0.5
-    
+
     # Time after stimulus to include (seconds)
     post_time_s: float = 3.0
-    
+
     # Whether to baseline-subtract each epoch
     baseline_subtract: bool = False
-    
+
     # Baseline window for subtraction (milliseconds from epoch start)
     baseline_window_ms: float = 10.0
 
@@ -56,16 +55,16 @@ class EpochConfig:
 @dataclass
 class MetricsConfig:
     """Configuration for response metrics calculation."""
-    
+
     # Baseline window for metrics (milliseconds)
     baseline_ms: float = 10.0
-    
+
     # Peak search window after artifact (milliseconds)
     peak_window_ms: float = 50.0
-    
+
     # Early search window for artifact detection (milliseconds)
     search_ms: float = 5.0
-    
+
     # Whether responses are expected to be upward (depolarizing)
     upward_responses: bool = True
 
@@ -73,27 +72,28 @@ class MetricsConfig:
 @dataclass
 class OutputConfig:
     """Configuration for output files and formats."""
-    
+
     # Output directory (None = auto-generate based on input file)
-    output_dir: Optional[Path] = None
-    
+    output_dir: Path | None = None
+
     # Output formats to generate
     save_npz: bool = True
     save_atf: bool = True
     save_hdf5: bool = True
-    
+
     # Plotting options
     save_plots: bool = True
     plot_dpi: int = 200
     plot_format: str = "png"
-    
+
     # Stats report
     save_stats: bool = True
-    
+
     # Overwrite existing files
     overwrite: bool = False
-    
-    def __post_init__(self):
+
+    def __post_init__(self) -> None:
+        """Convert output_dir to Path if provided."""
         if self.output_dir is not None:
             self.output_dir = Path(self.output_dir)
 
@@ -101,39 +101,38 @@ class OutputConfig:
 @dataclass
 class PlotConfig:
     """Configuration for visualization."""
-    
+
     # Figure size (width, height in inches)
-    figsize: tuple = (10, 6)
-    
+    figsize: tuple[int, int] = (10, 6)
+
     # DPI for saved figures
     dpi: int = 200
-    
+
     # Output format
     format: str = "png"
-    
+
     # Epoch overlay alpha
     overlay_alpha: float = 0.3
-    
+
     # Zoom plot range (milliseconds)
-    zoom_range_ms: tuple = (0, 50)
-    
+    zoom_range_ms: tuple[int, int] = (0, 50)
+
     # Color scheme
     colormap: str = "viridis"
-    
+
     # Show average on overlay plots
     show_average_overlay: bool = True
-    
+
     # Line width for average trace
     average_linewidth: float = 3.0
 
 
 @dataclass
 class AlignmentConfig:
-    """
-    Main configuration for the alignment pipeline.
-    
+    """Main configuration for the alignment pipeline.
+
     Combines all sub-configurations and provides file-level settings.
-    
+
     Example:
         >>> config = AlignmentConfig(
         ...     input_file="data/recording.abf",
@@ -141,52 +140,53 @@ class AlignmentConfig:
         ... )
         >>> # Or load from file
         >>> config = AlignmentConfig.from_yaml("config.yaml")
+
     """
-    
+
     # Input file path (required)
-    input_file: Optional[Union[str, Path]] = None
-    
+    input_file: str | Path | None = None
+
     # Reference channel for detection and alignment (0-indexed)
     reference_channel: int = 0
-    
+
     # Channels to process (None = all channels)
-    channels: Optional[List[int]] = None
-    
+    channels: list[int] | None = None
+
     # Sub-configurations
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     epoch: EpochConfig = field(default_factory=EpochConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     plot: PlotConfig = field(default_factory=PlotConfig)
-    
+
     # Logging level
     log_level: str = "INFO"
-    
+
     # Verbose console output
     verbose: bool = True
-    
-    def __post_init__(self):
+
+    def __post_init__(self) -> None:
         """Validate and normalize configuration."""
         if self.input_file is not None:
             self.input_file = Path(self.input_file)
             if not self.input_file.exists():
                 raise FileNotFoundError(f"Input file not found: {self.input_file}")
-    
+
     @property
     def min_interval_s(self) -> float:
         """Convenience accessor for detection.min_interval_s."""
         return self.detection.min_interval_s
-    
+
     @property
     def pre_time_s(self) -> float:
         """Convenience accessor for epoch.pre_time_s."""
         return self.epoch.pre_time_s
-    
+
     @property
     def post_time_s(self) -> float:
         """Convenience accessor for epoch.post_time_s."""
         return self.epoch.post_time_s
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""
         result = asdict(self)
@@ -196,9 +196,9 @@ class AlignmentConfig:
         if result["output"]["output_dir"] is not None:
             result["output"]["output_dir"] = str(result["output"]["output_dir"])
         return result
-    
+
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AlignmentConfig":
+    def from_dict(cls, data: dict[str, Any]) -> AlignmentConfig:
         """Create configuration from dictionary."""
         # Extract sub-configurations
         detection = DetectionConfig(**data.pop("detection", {}))
@@ -206,14 +206,14 @@ class AlignmentConfig:
         metrics = MetricsConfig(**data.pop("metrics", {}))
         output = OutputConfig(**data.pop("output", {}))
         plot_data = data.pop("plot", {})
-        
+
         # Handle tuple conversion for figsize and zoom_range_ms
         if "figsize" in plot_data and isinstance(plot_data["figsize"], list):
             plot_data["figsize"] = tuple(plot_data["figsize"])
         if "zoom_range_ms" in plot_data and isinstance(plot_data["zoom_range_ms"], list):
             plot_data["zoom_range_ms"] = tuple(plot_data["zoom_range_ms"])
         plot = PlotConfig(**plot_data)
-        
+
         return cls(
             detection=detection,
             epoch=epoch,
@@ -222,76 +222,81 @@ class AlignmentConfig:
             plot=plot,
             **data,
         )
-    
+
     @classmethod
-    def from_yaml(cls, path: Union[str, Path]) -> "AlignmentConfig":
+    def from_yaml(cls, path: str | Path) -> AlignmentConfig:
         """Load configuration from YAML file."""
         try:
             import yaml
-        except ImportError:
-            raise ImportError("PyYAML is required for YAML config files: pip install pyyaml")
-        
+        except ImportError as err:
+            raise ImportError(
+                "PyYAML is required for YAML config files: pip install pyyaml"
+            ) from err
+
         path = Path(path)
         with path.open() as f:
             data = yaml.safe_load(f)
-        
+
         logger.info(f"Loaded configuration from {path}")
         return cls.from_dict(data or {})
-    
+
     @classmethod
-    def from_toml(cls, path: Union[str, Path]) -> "AlignmentConfig":
+    def from_toml(cls, path: str | Path) -> AlignmentConfig:
         """Load configuration from TOML file."""
         try:
             import tomllib
         except ImportError:
             try:
                 import tomli as tomllib
-            except ImportError:
-                raise ImportError("tomli is required for TOML config files on Python < 3.11")
-        
+            except ImportError as err:
+                raise ImportError(
+                    "tomli is required for TOML config files on Python < 3.11"
+                ) from err
+
         path = Path(path)
         with path.open("rb") as f:
             data = tomllib.load(f)
-        
+
         logger.info(f"Loaded configuration from {path}")
         return cls.from_dict(data)
-    
+
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> "AlignmentConfig":
+    def from_file(cls, path: str | Path) -> AlignmentConfig:
         """Load configuration from file, auto-detecting format."""
         path = Path(path)
         suffix = path.suffix.lower()
-        
+
         if suffix in (".yaml", ".yml"):
             return cls.from_yaml(path)
         elif suffix == ".toml":
             return cls.from_toml(path)
         else:
             raise ValueError(f"Unsupported config file format: {suffix}")
-    
-    def to_yaml(self, path: Union[str, Path]) -> None:
+
+    def to_yaml(self, path: str | Path) -> None:
         """Save configuration to YAML file."""
         try:
             import yaml
-        except ImportError:
-            raise ImportError("PyYAML is required for YAML config files: pip install pyyaml")
-        
+        except ImportError as err:
+            raise ImportError(
+                "PyYAML is required for YAML config files: pip install pyyaml"
+            ) from err
+
         path = Path(path)
         with path.open("w") as f:
             yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
-        
+
         logger.info(f"Saved configuration to {path}")
-    
+
     @classmethod
-    def from_env(cls, prefix: str = "EPHYALIGN_") -> "AlignmentConfig":
-        """
-        Create configuration from environment variables.
-        
+    def from_env(cls, prefix: str = "EPHYALIGN_") -> AlignmentConfig:
+        """Create configuration from environment variables.
+
         Environment variables are expected in the format:
         EPHYALIGN_INPUT_FILE, EPHYALIGN_REFERENCE_CHANNEL, etc.
         """
-        data = {}
-        
+        data: dict[str, Any] = {}
+
         env_mappings = {
             "INPUT_FILE": "input_file",
             "REFERENCE_CHANNEL": ("reference_channel", int),
@@ -304,7 +309,7 @@ class AlignmentConfig:
             "OUTPUT_DIR": "output.output_dir",
             "OUTPUT_OVERWRITE": ("output.overwrite", lambda x: x.lower() in ("true", "1", "yes")),
         }
-        
+
         for env_key, mapping in env_mappings.items():
             env_value = os.environ.get(f"{prefix}{env_key}")
             if env_value is not None:
@@ -314,7 +319,7 @@ class AlignmentConfig:
                 else:
                     key = mapping
                     value = env_value
-                
+
                 # Handle nested keys
                 if "." in key:
                     parts = key.split(".")
@@ -324,7 +329,7 @@ class AlignmentConfig:
                     d[parts[-1]] = value
                 else:
                     data[key] = value
-        
+
         return cls.from_dict(data) if data else cls()
 
 
@@ -333,22 +338,23 @@ def get_default_config() -> AlignmentConfig:
     return AlignmentConfig()
 
 
-def generate_example_config(path: Union[str, Path], format: str = "yaml") -> None:
-    """
-    Generate an example configuration file with all options documented.
-    
+def generate_example_config(path: str | Path, format: str = "yaml") -> None:
+    """Generate an example configuration file with all options documented.
+
     Args:
         path: Output file path
         format: 'yaml' or 'toml'
+
     """
-    config = get_default_config()
-    
+    get_default_config()
+
     if format == "yaml":
-        try:
-            import yaml
-        except ImportError:
+        # Check yaml availability for consistency, though we write raw text
+        import importlib.util
+
+        if importlib.util.find_spec("yaml") is None:
             raise ImportError("PyYAML required: pip install pyyaml")
-        
+
         content = """# ephyalign Configuration File
 # ============================
 # This file contains all available configuration options with their default values.
@@ -408,5 +414,5 @@ plot:
         Path(path).write_text(content)
     else:
         raise ValueError(f"Unsupported format: {format}")
-    
+
     logger.info(f"Generated example config at {path}")

@@ -1,5 +1,4 @@
-"""
-ephyalign - Electrophysiology Response Alignment Toolkit
+"""ephyalign - Electrophysiology Response Alignment Toolkit.
 
 A Python package for aligning electrophysiological responses to stimulation events
 in ABF (Axon Binary Format) recordings. Automatically detects stimulus artifacts
@@ -9,7 +8,7 @@ Copyright (c) 2025 Samuel Matthews Mckay Loureiro
 License: MIT
 """
 
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("ephyalign")
@@ -17,11 +16,11 @@ except PackageNotFoundError:
     __version__ = "0.1.0.dev0"
 
 from ephyalign.config import AlignmentConfig
-from ephyalign.core.loader import load_recording
-from ephyalign.core.detector import detect_stim_onsets
 from ephyalign.core.aligner import build_epochs, refine_alignment
+from ephyalign.core.detector import detect_stim_onsets
+from ephyalign.core.loader import load_recording
 from ephyalign.core.metrics import compute_epoch_metrics
-from ephyalign.pipeline import align_recording, AlignmentResult
+from ephyalign.pipeline import AlignmentResult, align_recording
 
 __all__ = [
     "__version__",

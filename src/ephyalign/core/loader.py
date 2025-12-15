@@ -1,5 +1,4 @@
-"""
-ABF file loading and data extraction.
+"""ABF file loading and data extraction.
 
 This module handles reading Axon Binary Format (ABF) files and extracting
 continuous electrophysiological recordings for further processing.
@@ -11,7 +10,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Union
 
 import numpy as np
 import pyabf
@@ -21,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RecordingData:
-    """
-    Container for loaded recording data and metadata.
-    
+    """Container for loaded recording data and metadata.
+
     Attributes:
         data: Recording data array of shape (n_channels, n_samples)
         sampling_rate: Sampling rate in Hz
@@ -36,48 +33,48 @@ class RecordingData:
         file_path: Path to the source file
         abf_version: ABF file version
         recording_datetime: Date and time of recording
+
     """
-    
+
     data: np.ndarray
     sampling_rate: float
     dt: float
-    channel_names: List[str]
-    channel_units: List[str]
+    channel_names: list[str]
+    channel_units: list[str]
     n_channels: int
     n_samples: int
     duration_s: float
     file_path: Path
     abf_version: dict
-    recording_datetime: Optional[datetime]
-    
+    recording_datetime: datetime | None
+
     # Keep reference to ABF object for additional metadata access
-    _abf: Optional[pyabf.ABF] = None
-    
+    _abf: pyabf.ABF | None = None
+
     def get_channel_data(self, channel: int) -> np.ndarray:
         """Get data for a specific channel."""
         if channel < 0 or channel >= self.n_channels:
             raise ValueError(
-                f"Channel {channel} out of range. "
-                f"Available channels: 0-{self.n_channels - 1}"
+                f"Channel {channel} out of range. Available channels: 0-{self.n_channels - 1}"
             )
         return self.data[channel]
-    
+
     def get_channel_by_name(self, name: str) -> np.ndarray:
         """Get data for a channel by its name."""
         try:
             idx = self.channel_names.index(name)
             return self.data[idx]
-        except ValueError:
+        except ValueError as err:
             raise ValueError(
-                f"Channel '{name}' not found. "
-                f"Available channels: {self.channel_names}"
-            )
-    
+                f"Channel '{name}' not found. Available channels: {self.channel_names}"
+            ) from err
+
     def get_time_axis(self) -> np.ndarray:
         """Get time axis in seconds."""
         return np.arange(self.n_samples) * self.dt
-    
+
     def __repr__(self) -> str:
+        """Return string representation of RecordingData."""
         return (
             f"RecordingData("
             f"channels={self.n_channels}, "
@@ -88,45 +85,45 @@ class RecordingData:
 
 
 def load_recording(
-    file_path: Union[str, Path],
-    channels: Optional[List[int]] = None,
+    file_path: str | Path,
+    channels: list[int] | None = None,
 ) -> RecordingData:
-    """
-    Load an ABF recording file.
-    
+    """Load an ABF recording file.
+
     Args:
         file_path: Path to the ABF file
         channels: Specific channels to load (None = all channels)
-    
+
     Returns:
         RecordingData object containing the loaded data and metadata
-    
+
     Raises:
         FileNotFoundError: If the file doesn't exist
         ValueError: If specified channels are invalid
-    
+
     Example:
         >>> recording = load_recording("data/experiment.abf")
         >>> print(f"Loaded {recording.n_channels} channels, {recording.duration_s:.1f}s")
+
     """
     file_path = Path(file_path)
-    
+
     if not file_path.exists():
         raise FileNotFoundError(f"ABF file not found: {file_path}")
-    
+
     logger.info(f"Loading ABF file: {file_path}")
-    
+
     abf = pyabf.ABF(str(file_path))
-    
+
     # Extract basic metadata
     sampling_rate = float(abf.dataRate)
     dt = 1.0 / sampling_rate
     n_channels = abf.channelCount
-    
+
     logger.debug(f"Sampling rate: {sampling_rate} Hz")
     logger.debug(f"Sweep count: {abf.sweepCount}")
     logger.debug(f"Channel count: {n_channels}")
-    
+
     # Validate channel selection
     if channels is not None:
         for ch in channels:
@@ -138,7 +135,7 @@ def load_recording(
         channels_to_load = channels
     else:
         channels_to_load = list(range(n_channels))
-    
+
     # Load data for all channels
     # Handle both single-sweep and multi-sweep recordings
     if abf.sweepCount == 1:
@@ -158,10 +155,10 @@ def load_recording(
                 sweep_arrays.append(abf.sweepY.copy())
             channel_data.append(np.concatenate(sweep_arrays))
         data = np.vstack(channel_data)
-    
+
     n_samples = data.shape[1]
     duration_s = n_samples * dt
-    
+
     # Extract channel names and units
     channel_names = []
     channel_units = []
@@ -170,16 +167,13 @@ def load_recording(
         # Clean up non-printable characters
         name = "".join(c for c in name if c.isprintable()) or f"Ch{ch}"
         channel_names.append(name)
-        
+
         unit = abf.adcUnits[ch] if ch < len(abf.adcUnits) else "?"
         unit = "".join(c for c in unit if c.isprintable()) or "?"
         channel_units.append(unit)
-    
-    logger.info(
-        f"Loaded {len(channels_to_load)} channels, "
-        f"{n_samples} samples ({duration_s:.2f}s)"
-    )
-    
+
+    logger.info(f"Loaded {len(channels_to_load)} channels, {n_samples} samples ({duration_s:.2f}s)")
+
     return RecordingData(
         data=data,
         sampling_rate=sampling_rate,
@@ -196,23 +190,23 @@ def load_recording(
     )
 
 
-def get_file_info(file_path: Union[str, Path]) -> dict:
-    """
-    Get metadata about an ABF file without loading all data.
-    
+def get_file_info(file_path: str | Path) -> dict:
+    """Get metadata about an ABF file without loading all data.
+
     Args:
         file_path: Path to the ABF file
-    
+
     Returns:
         Dictionary with file metadata
+
     """
     file_path = Path(file_path)
-    
+
     if not file_path.exists():
         raise FileNotFoundError(f"ABF file not found: {file_path}")
-    
+
     abf = pyabf.ABF(str(file_path))
-    
+
     return {
         "file_path": str(file_path),
         "file_name": file_path.name,
@@ -225,7 +219,6 @@ def get_file_info(file_path: Union[str, Path]) -> dict:
         "recording_datetime": abf.abfDateTime,
         "sweep_length_points": len(abf.sweepY) if abf.sweepCount > 0 else 0,
         "total_duration_s": (
-            abf.sweepCount * len(abf.sweepY) / abf.dataRate
-            if abf.sweepCount > 0 else 0
+            abf.sweepCount * len(abf.sweepY) / abf.dataRate if abf.sweepCount > 0 else 0
         ),
     }
