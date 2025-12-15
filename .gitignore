@@ -89,3 +89,7 @@ nosetests.xml
 
 # Ruff cache
 .ruff_cache/
+
+# Data
+data/*
+*.abf
